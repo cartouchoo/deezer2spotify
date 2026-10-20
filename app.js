@@ -395,6 +395,10 @@
     setProgress(2, 'Connexion à Spotify…');
 
     if (!clientId()) throw new UserError("Le Client ID Spotify n'est pas configuré. Ouvre les réglages (en haut à droite).");
+    if (!/^[0-9a-f]{32}$/i.test(clientId())) {
+      throw new UserError(`Le Client ID Spotify semble incomplet (${clientId().length} caractères au lieu de 32). ` +
+        "Recopie-le en entier depuis developer.spotify.com/dashboard → ton app → Settings, puis colle-le dans les réglages.");
+    }
     if (!(await getToken())) {
       store.set('pp.pending', JSON.stringify({ input, options }));
       setProgress(5, 'Redirection vers Spotify…');
@@ -486,7 +490,7 @@
   $('#logoutBtn').addEventListener('click', () => { store.del('pp.token'); refreshAuthHint(); });
   dlg.addEventListener('close', () => {
     if (dlg.returnValue === 'save' && !CFG.clientId) {
-      const v = $('#clientId').value.trim();
+      const v = $('#clientId').value.replace(/\s+/g, '');
       if (v) store.set('pp.clientId', v); else store.del('pp.clientId');
     }
     refreshAuthHint();
