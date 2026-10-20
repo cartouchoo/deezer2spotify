@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Passe-Playlist</title>
+  <meta name="description" content="Copie une playlist Deezer dans ton compte Spotify.">
+  <meta name="theme-color" content="#16131f" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f6f3ee" media="(prefers-color-scheme: light)">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Passe-Playlist">
+  <link rel="stylesheet" href="style.css">
+  <script src="config.js"></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="top">
+      <div class="brand">
+        <img src="icons/icon.svg" alt="" width="36" height="36">
+        <div>
+          <h1>Passe-Playlist</h1>
+          <p class="sub">De Deezer vers Spotify</p>
+        </div>
+      </div>
+      <button class="icon-btn" id="settingsBtn" type="button" aria-label="Réglages">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h9M19 7h1M4 17h3M13 17h7"/><circle cx="16" cy="7" r="2.5"/><circle cx="10" cy="17" r="2.5"/></svg>
+      </button>
+    </header>
+
+    <section class="card" id="setupCard" hidden>
+      <h2>Première configuration</h2>
+      <p>Il manque le <strong>Client ID</strong> de l'application Spotify. Demande-le à la personne qui a installé Passe-Playlist, puis colle-le dans les réglages.</p>
+      <button class="btn secondary" type="button" data-open-settings>Ouvrir les réglages</button>
+    </section>
+
+    <form class="card main" id="form" autocomplete="off">
+      <label for="link" class="label">Lien de la playlist Deezer</label>
+      <div class="field">
+        <input id="link" name="link" type="text" inputmode="url" autocapitalize="off" spellcheck="false" placeholder="https://link.deezer.com/s/…" required>
+        <button type="button" class="paste" id="pasteBtn" hidden>Coller</button>
+      </div>
+      <details class="opts">
+        <summary>Options</summary>
+        <label class="label small" for="name">Nom sur Spotify <span class="muted">(par défaut : celui de Deezer)</span></label>
+        <input id="name" type="text" maxlength="100" placeholder="Nom de la playlist">
+        <label class="check"><input id="public" type="checkbox"> Playlist publique</label>
+      </details>
+      <button class="btn primary" id="goBtn" type="submit">Créer sur Spotify</button>
+      <p class="hint" id="authHint"></p>
+    </form>
+
+    <section class="card" id="progressCard" hidden aria-live="polite">
+      <div class="progress"><div class="bar" id="bar"></div></div>
+      <p class="status" id="status">Préparation…</p>
+      <p class="muted small" id="detail"></p>
+    </section>
+
+    <section class="card result" id="resultCard" hidden>
+      <p class="eyebrow">C'est prêt</p>
+      <h2 id="resultTitle"></h2>
+      <p class="muted" id="resultStats"></p>
+      <a class="btn primary" id="openLink" href="#" target="_blank" rel="noopener">Ouvrir dans Spotify</a>
+      <div class="linkbox">
+        <input id="resultUrl" readonly aria-label="Lien Spotify">
+        <button class="btn secondary" type="button" id="copyBtn">Copier</button>
+      </div>
+      <button class="btn ghost" type="button" id="shareBtn" hidden>Partager le lien</button>
+      <details class="missing" id="missingBox" hidden>
+        <summary id="missingSummary"></summary>
+        <ul id="missingList"></ul>
+      </details>
+      <button class="btn ghost" type="button" id="againBtn">Copier une autre playlist</button>
+    </section>
+
+    <section class="card error" id="errorCard" hidden role="alert">
+      <h2>Oups</h2>
+      <p id="errorText"></p>
+      <div class="row" id="errorActions"></div>
+    </section>
+
+    <footer class="foot">Outil indépendant et open source, non affilié à Deezer ni à Spotify.</footer>
+  </main>
+
+  <dialog id="settings">
+    <form method="dialog" class="dlg">
+      <h2>Réglages</h2>
+      <div id="clientIdRow">
+        <label class="label small" for="clientId">Client ID Spotify</label>
+        <input id="clientId" type="text" spellcheck="false" autocapitalize="off" placeholder="32 caractères">
+      </div>
+      <p class="label small">Redirect URI à déclarer dans l'app Spotify</p>
+      <div class="linkbox">
+        <input id="redirectUri" readonly>
+        <button class="btn secondary" type="button" id="copyRedirect">Copier</button>
+      </div>
+      <p class="small muted" id="accountState"></p>
+      <div class="row">
+        <button class="btn ghost" type="button" id="logoutBtn">Se déconnecter de Spotify</button>
+        <button class="btn primary" value="save" id="saveSettings">Enregistrer</button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>
