@@ -47,6 +47,7 @@
         <summary>Options</summary>
         <label class="label small" for="name">Nom sur Spotify <span class="muted">(par défaut : celui de Deezer)</span></label>
         <input id="name" type="text" maxlength="100" placeholder="Nom de la playlist">
+        <label class="check" id="collabRow" hidden><input id="collab" type="checkbox" checked> Collaborative <span class="muted">(tes amis peuvent ajouter des titres, nécessaire pour la synchro dans les deux sens)</span></label>
         <label class="check"><input id="public" type="checkbox"> Playlist publique</label>
       </details>
       <button class="btn primary" id="goBtn" type="submit">Créer sur Spotify</button>
@@ -69,6 +70,12 @@
         <button class="btn secondary" type="button" id="copyBtn">Copier</button>
       </div>
       <button class="btn ghost" type="button" id="shareBtn" hidden>Partager le lien</button>
+      <div class="sync-offer" id="syncOffer" hidden>
+        <p class="label">Garder les deux playlists synchronisées ?</p>
+        <p class="small muted">Les ajouts et retraits sur Deezer seront reportés sur Spotify toutes les 30 minutes, et les ajouts de tes amis sur Spotify apparaîtront ici à reporter sur Deezer.</p>
+        <a class="btn secondary" id="syncEnable" href="#" target="_blank" rel="noopener">Activer la synchro sur GitHub</a>
+        <p class="small muted">GitHub s'ouvre avec le fichier prêt : clique simplement sur « Commit changes ».</p>
+      </div>
       <details class="missing" id="missingBox" hidden>
         <summary id="missingSummary"></summary>
         <ul id="missingList"></ul>
@@ -80,6 +87,15 @@
       <h2>Oups</h2>
       <p id="errorText"></p>
       <div class="row" id="errorActions"></div>
+    </section>
+
+    <section id="syncSection" hidden>
+      <div class="section-head">
+        <h2>Playlists synchronisées</h2>
+        <a class="small" id="syncRunLink" href="#" target="_blank" rel="noopener">Lancer maintenant</a>
+      </div>
+      <div id="syncList" class="sync-list"></div>
+      <p class="small muted">Vérification automatique toutes les 30 minutes. Une fois un titre ajouté ou retiré sur Deezer, il disparaît de cette liste au passage suivant.</p>
     </section>
 
     <footer class="foot">Outil indépendant et open source, non affilié à Deezer ni à Spotify.</footer>
@@ -98,10 +114,26 @@
         <button class="btn secondary" type="button" id="copyRedirect">Copier</button>
       </div>
       <p class="small muted" id="accountState"></p>
+      <div id="syncSettings" hidden>
+        <p class="label small">Synchronisation automatique</p>
+        <p class="small muted">À faire une seule fois, par le propriétaire de l'app Spotify : génère un jeton dédié à la synchro, puis enregistre-le dans les secrets du dépôt GitHub.</p>
+        <button class="btn secondary" type="button" id="syncTokenBtn">Générer le jeton de synchro</button>
+      </div>
       <div class="row">
         <button class="btn ghost" type="button" id="logoutBtn">Se déconnecter de Spotify</button>
         <button class="btn primary" value="save" id="saveSettings">Enregistrer</button>
       </div>
+    </form>
+  </dialog>
+
+  <dialog id="syncSetup">
+    <form method="dialog" class="dlg">
+      <h2>Secrets pour la synchro</h2>
+      <p class="small">Ajoute ces valeurs dans <strong>GitHub → Settings → Secrets and variables → Actions → New repository secret</strong>, une par une (nom à gauche, valeur à droite).</p>
+      <div id="secretRows" class="secrets"></div>
+      <a class="btn secondary" id="secretsLink" href="#" target="_blank" rel="noopener">Ouvrir les secrets GitHub</a>
+      <p class="small muted">Ces valeurs ne sont affichées qu'ici et ne sont enregistrées nulle part dans l'appli. Ne les partage pas.</p>
+      <div class="row"><button class="btn primary" value="ok">C'est fait</button></div>
     </form>
   </dialog>
 </body>

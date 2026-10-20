@@ -156,11 +156,11 @@
   const b64url = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)))
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
-  async function startLogin() {
+  async function startLogin(purpose = 'app') {
     const verifier = b64url(crypto.getRandomValues(new Uint8Array(64)));
     const challenge = b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
     const state = b64url(crypto.getRandomValues(new Uint8Array(16)));
-    store.set('pp.pkce', JSON.stringify({ verifier, state, clientId: clientId() }));
+    store.set('pp.pkce', JSON.stringify({ verifier, state, clientId: clientId(), purpose }));
     location.assign(SPOTIFY_AUTH + '?' + new URLSearchParams({
       client_id: clientId(),
       response_type: 'code',
@@ -213,8 +213,10 @@
       code_verifier: pkce.verifier,
     });
     if (!ok) throw new UserError('Connexion Spotify impossible : ' + (data.error_description || data.error || 'erreur inconnue'));
+    // Jeton dédié à la synchro GitHub : affiché une fois, jamais conservé dans l'appli.
+    if (pkce.purpose === 'sync') return { purpose: 'sync', refreshToken: data.refresh_token };
     saveToken(data);
-    return true;
+    return { purpose: 'app' };
   }
 
   async function getToken() {
@@ -327,7 +329,7 @@
 
   // ---------------------------------------------------------------- interface
   const ui = {
-    form: $('#form'), link: $('#link'), name: $('#name'), isPublic: $('#public'), go: $('#goBtn'),
+    form: $('#form'), link: $('#link'), name: $('#name'), isPublic: $('#public'), collab: $('#collab'), go: $('#goBtn'),
     paste: $('#pasteBtn'), authHint: $('#authHint'),
     progressCard: $('#progressCard'), bar: $('#bar'), status: $('#status'), detail: $('#detail'),
     resultCard: $('#resultCard'), errorCard: $('#errorCard'), setupCard: $('#setupCard'),
@@ -361,7 +363,19 @@
     ui.go.disabled = false;
   }
 
-  function showResult({ name, url, found, total, missing }) {
+  function showResult({ name, url, found, total, missing, deezerId, spotifyId, collaborative }) {
+    const offer = $('#syncOffer');
+    offer.hidden = !CFG.repo || !deezerId || !spotifyId;
+    if (!offer.hidden) {
+      const pair = { deezer: String(deezerId), spotify: spotifyId, name };
+      $('#syncEnable').href = `https://github.com/${CFG.repo}/new/main?` + new URLSearchParams({
+        filename: `sync/pairs/${deezerId}.json`,
+        value: JSON.stringify(pair, null, 2) + '\n',
+      });
+      offer.querySelector('.small.muted').textContent = collaborative
+        ? "Les ajouts et retraits sur Deezer seront reportés sur Spotify toutes les 30 minutes. Pour que tes amis puissent ajouter des titres, invite-les dans Spotify : playlist → ⋯ → Inviter des collaborateurs. Leurs ajouts apparaîtront ici, à reporter sur Deezer."
+        : "Les ajouts et retraits sur Deezer seront reportés sur Spotify toutes les 30 minutes.";
+    }
     $('#resultTitle').textContent = name;
     $('#resultStats').textContent = `${found} titre${found > 1 ? 's' : ''} sur ${total} ajouté${found > 1 ? 's' : ''}.`;
     $('#openLink').href = url;
@@ -426,8 +440,14 @@
 
     const name = (options.name || title).slice(0, 100);
     setProgress(94, 'Création de la playlist…');
+    const collaborative = !!options.collaborative;
     const playlist = await spotify('POST', '/me/playlists', {
-      body: { name, public: !!options.public, description: `Copiée depuis Deezer (${title}) avec Passe-Playlist`.slice(0, 300) },
+      body: {
+        name,
+        public: collaborative ? false : !!options.public, // Spotify : une playlist collaborative est forcément non publique
+        collaborative,
+        description: `Copiée depuis Deezer (${title}) avec Passe-Playlist`.slice(0, 300),
+      },
     });
     for (let i = 0; i < uris.length; i += 100) {
       await spotify('POST', `/playlists/${playlist.id}/items`, { body: { uris: uris.slice(i, i + 100) } });
@@ -437,6 +457,7 @@
       name,
       url: (playlist.external_urls && playlist.external_urls.spotify) || `https://open.spotify.com/playlist/${playlist.id}`,
       found: uris.length, total: tracks.length, missing,
+      deezerId: id, spotifyId: playlist.id, collaborative,
     });
   }
 
@@ -450,8 +471,22 @@
     const input = extractLink(ui.link.value);
     if (!input) return;
     ui.link.value = input;
-    start(input, { name: ui.name.value.trim(), public: ui.isPublic.checked });
+    start(input, currentOptions());
   });
+
+  function currentOptions() {
+    const collaborative = !!CFG.repo && ui.collab.checked;
+    return { name: ui.name.value.trim(), public: !collaborative && ui.isPublic.checked, collaborative };
+  }
+  if (CFG.repo) {
+    $('#collabRow').hidden = false;
+    const syncPublic = () => {
+      ui.isPublic.disabled = ui.collab.checked;
+      if (ui.collab.checked) ui.isPublic.checked = false;
+    };
+    ui.collab.addEventListener('change', syncPublic);
+    syncPublic();
+  }
 
   if (navigator.clipboard && navigator.clipboard.readText) {
     ui.paste.hidden = false;
@@ -481,6 +516,7 @@
     $('#clientIdRow').hidden = !!CFG.clientId;
     $('#clientId').value = store.get('pp.clientId') || '';
     $('#redirectUri').value = REDIRECT_URI;
+    $('#syncSettings').hidden = !CFG.repo;
     refreshAuthHint();
     if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
   }
@@ -496,8 +532,125 @@
     refreshAuthHint();
   });
 
+  // ---------------------------------------------------------------- synchronisation (GitHub Actions)
+  $('#syncTokenBtn').addEventListener('click', () => {
+    const v = $('#clientId').value.replace(/\s+/g, '');
+    if (!CFG.clientId && v) store.set('pp.clientId', v);
+    if (!/^[0-9a-f]{32}$/i.test(clientId())) {
+      $('#accountState').textContent = "Renseigne d'abord un Client ID Spotify valide (32 caractères).";
+      return;
+    }
+    startLogin('sync');
+  });
+
+  function showSyncSecrets(refreshToken) {
+    const key = b64url(crypto.getRandomValues(new Uint8Array(32)));
+    const secrets = [['SPOTIFY_REFRESH_TOKEN', refreshToken], ['SYNC_KEY', key]];
+    if (!CFG.clientId) secrets.push(['SPOTIFY_CLIENT_ID', clientId()]);
+    const rows = $('#secretRows');
+    rows.replaceChildren(...secrets.map(([name, value]) => {
+      const div = document.createElement('div');
+      div.className = 'secret';
+      const code = document.createElement('code'); code.textContent = name;
+      const box = document.createElement('div'); box.className = 'linkbox';
+      const input = document.createElement('input'); input.readOnly = true; input.value = value;
+      input.setAttribute('aria-label', name);
+      const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'btn secondary'; btn.textContent = 'Copier';
+      btn.addEventListener('click', () => copy(value, btn));
+      box.append(input, btn); div.append(code, box);
+      return div;
+    }));
+    $('#secretsLink').href = `https://github.com/${CFG.repo}/settings/secrets/actions/new`;
+    const d = $('#syncSetup');
+    if (d.showModal) d.showModal(); else d.setAttribute('open', '');
+  }
+
+  const timeAgo = (iso) => {
+    if (!iso) return '';
+    const s = Math.max(0, (Date.now() - Date.parse(iso)) / 1000);
+    if (s < 90) return "à l'instant";
+    if (s < 3600) return `il y a ${Math.round(s / 60)} min`;
+    if (s < 86400) return `il y a ${Math.round(s / 3600)} h`;
+    return `il y a ${Math.round(s / 86400)} j`;
+  };
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  function todoItem(t, sub, label, cls) {
+    const row = el('div', 'todo-item');
+    const txt = el('div', 't');
+    txt.append(el('strong', null, t.title || '?'), el('span', null, sub));
+    const a = el('a', `btn ${cls}`, label);
+    a.href = t.deezer_url; a.target = '_blank'; a.rel = 'noopener';
+    row.append(txt, a);
+    return row;
+  }
+
+  async function loadSync() {
+    if (!CFG.repo) return;
+    let data;
+    try {
+      const r = await fetch('sync/state/index.json', { cache: 'no-store' });
+      if (!r.ok) return;
+      data = await r.json();
+    } catch { return; }
+    const pairs = (data && data.pairs) || [];
+    if (!pairs.length) return;
+    $('#syncRunLink').href = `https://github.com/${CFG.repo}/actions/workflows/sync.yml`;
+    const list = $('#syncList');
+    list.replaceChildren(...pairs.map((p) => {
+      const card = el('article', 'card pair');
+      const head = el('div', 'pair-head');
+      const left = el('div');
+      left.append(el('h3', null, p.name));
+      const links = el('div', 'pair-links');
+      for (const [href, label] of [[p.deezer_url, 'Deezer'], [p.spotify_url, 'Spotify']]) {
+        const a = el('a', null, label); a.href = href; a.target = '_blank'; a.rel = 'noopener'; links.append(a);
+      }
+      left.append(links);
+      const todo = (p.to_deezer || []).length + (p.to_remove_deezer || []).length;
+      const badge = p.error ? el('span', 'badge err', 'Erreur')
+        : todo ? el('span', 'badge todo', `${todo} à faire`) : el('span', 'badge ok', 'À jour');
+      head.append(left, badge);
+      card.append(head);
+      card.append(el('p', 'small muted', `${p.synced} titres synchronisés` + (p.updated_at ? ` · modifiée ${timeAgo(p.updated_at)}` : '')));
+      if (p.error) card.append(el('p', 'error-line', p.error));
+      if ((p.to_deezer || []).length) {
+        const g = el('div', 'todo-group');
+        g.append(el('p', null, 'À ajouter sur Deezer'));
+        for (const t of p.to_deezer) {
+          const sub = t.artist + (t.added_by ? ` · ajouté par ${t.added_by}` : '');
+          g.append(todoItem(t, sub, t.deezer_id ? 'Ajouter sur Deezer' : 'Chercher sur Deezer', 'primary'));
+        }
+        card.append(g);
+      }
+      if ((p.to_remove_deezer || []).length) {
+        const g = el('div', 'todo-group');
+        g.append(el('p', null, 'Retirés sur Spotify — à retirer sur Deezer ?'));
+        for (const t of p.to_remove_deezer) g.append(todoItem(t, t.artist, 'Ouvrir dans Deezer', 'danger-soft'));
+        card.append(g);
+      }
+      if ((p.unmatched || []).length) {
+        const det = el('details', 'missing');
+        det.append(el('summary', null, `${p.unmatched.length} titre${p.unmatched.length > 1 ? 's' : ''} Deezer introuvable${p.unmatched.length > 1 ? 's' : ''} sur Spotify`));
+        const ul = el('ul');
+        for (const t of p.unmatched) ul.append(el('li', null, `${t.artist} — ${t.title}`));
+        det.append(ul);
+        card.append(det);
+      }
+      return card;
+    }));
+    $('#syncSection').hidden = false;
+  }
+
   // ---------------------------------------------------------------- démarrage
   async function boot() {
+    loadSync();
     refreshAuthHint();
     const params = new URLSearchParams(location.search);
 
@@ -506,12 +659,15 @@
     if (shared && !params.has('code')) {
       history.replaceState(null, '', REDIRECT_URI);
       ui.link.value = shared;
-      start(shared, { name: '', public: false });
+      start(shared, currentOptions());
       return;
     }
 
     try {
-      if (await handleCallback()) {
+      const cb = await handleCallback();
+      if (cb && cb.purpose === 'sync') {
+        showSyncSecrets(cb.refreshToken);
+      } else if (cb) {
         refreshAuthHint();
         const pending = store.json('pp.pending');
         store.del('pp.pending');
@@ -519,6 +675,7 @@
           ui.link.value = pending.input;
           ui.name.value = (pending.options && pending.options.name) || '';
           ui.isPublic.checked = !!(pending.options && pending.options.public);
+          if (pending.options && 'collaborative' in pending.options) ui.collab.checked = !!pending.options.collaborative;
           start(pending.input, pending.options || {});
         }
       }

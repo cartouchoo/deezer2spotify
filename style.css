@@ -130,6 +130,46 @@ input[readonly] { color: var(--muted); font-size: .9rem; }
 .error h2 { color: var(--danger); }
 .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 
+.sync-offer {
+  border-top: 1px solid var(--line);
+  padding-top: 14px; margin-top: 2px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+#syncSection { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; padding: 0 2px; }
+.section-head h2 { margin: 0; }
+.section-head a { color: var(--accent); text-decoration: none; font-weight: 600; }
+.sync-list { display: flex; flex-direction: column; gap: 12px; }
+.pair { gap: 10px; }
+.pair-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.pair-head h3 { margin: 0; font-size: 1.05rem; }
+.pair-links { display: flex; gap: 12px; font-size: .85rem; }
+.pair-links a { color: var(--accent); text-decoration: none; font-weight: 600; }
+.badge {
+  flex: none; font-size: .75rem; font-weight: 700; padding: 4px 9px; border-radius: 99px;
+  background: var(--surface-2); color: var(--muted);
+}
+.badge.todo { background: color-mix(in srgb, var(--accent-2) 18%, transparent); color: var(--accent-2); }
+.badge.ok { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+.badge.err { background: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--danger); }
+.todo-group { display: flex; flex-direction: column; gap: 6px; }
+.todo-group > p { font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.todo-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: var(--surface-2); border-radius: 12px; padding: 10px 12px;
+}
+.todo-item .t { min-width: 0; }
+.todo-item .t strong, .todo-item .t span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.todo-item .t strong { font-size: .95rem; }
+.todo-item .t span { font-size: .8rem; color: var(--muted); }
+.todo-item .btn { padding: 8px 12px; font-size: .85rem; border-radius: 10px; flex: none; }
+.btn.danger-soft { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
+.pair .error-line { color: var(--danger); font-size: .85rem; }
+.secrets { display: flex; flex-direction: column; gap: 10px; }
+.secret { display: flex; flex-direction: column; gap: 4px; }
+.secret code { font: 600 .8rem ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent); }
+input:disabled { opacity: .5; }
+
 .foot { text-align: center; color: var(--muted); font-size: .78rem; padding: 6px 0; }
 
 dialog {

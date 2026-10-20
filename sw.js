@@ -1,7 +1,7 @@
 // Service worker minimal : rend l'appli installable et utilisable hors ligne pour l'interface.
 // Réseau d'abord (pour toujours avoir la dernière version), cache en secours.
 // Les appels à Deezer et Spotify ne sont jamais mis en cache.
-const CACHE = 'passe-playlist-v2';
+const CACHE = 'passe-playlist-v3';
 const SHELL = [
   './', 'index.html', 'style.css', 'app.js', 'config.js', 'manifest.webmanifest',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png',
